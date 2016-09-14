@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Shadowsocks.Controller;
@@ -46,7 +47,7 @@ namespace Shadowsocks.Util.ProcessManagement
             Marshal.StructureToPtr(extendedInfo, extendedInfoPtr, false);
 
             if (!SetInformationJobObject(handle, JobObjectInfoType.ExtendedLimitInformation, extendedInfoPtr, (uint)length))
-                throw new Exception(string.Format("Unable to set information.  Error: {0}", Marshal.GetLastWin32Error()));
+                throw new Win32Exception("Unable to set information.");
         }
 
         public void Dispose()
@@ -76,13 +77,12 @@ namespace Shadowsocks.Util.ProcessManagement
         {
             var succ = AssignProcessToJobObject(handle, processHandle);
 
-            if (!succ)
-            {
-                var err = Marshal.GetLastWin32Error();
-                Logging.Error("Failed to call AssignProcessToJobObject! GetLastError=" + err);
-            }
+            if (succ)
+                return true;
+            var err = Marshal.GetLastWin32Error();
+            Logging.Error("Failed to call AssignProcessToJobObject! GetLastError=" + err);
 
-            return succ;
+            return false;
         }
 
         public bool AddProcess(int processId)

@@ -12,7 +12,7 @@ namespace Shadowsocks.Util
     public class Utils
     {
         private static bool? _portableMode;
-        private static string TempPath = null;
+        private static string TempPath;
 
         public static bool IsPortableMode()
         {
@@ -27,26 +27,25 @@ namespace Shadowsocks.Util
         // return path to store temporary files
         public static string GetTempPath()
         {
-            if (TempPath == null)
-            {
-                if (IsPortableMode())
-                    try
-                    {
-                        Directory.CreateDirectory(Path.Combine(Application.StartupPath, "temp"));
-                    }
-                    catch (Exception e)
-                    {
-                        TempPath = Path.GetTempPath();
-                        Logging.LogUsefulException(e);
-                    }
-                    finally
-                    {
-                        // don't use "/", it will fail when we call explorer /select xxx/temp\xxx.log
-                        TempPath = Path.Combine(Application.StartupPath, "temp");
-                    }
-                else
+            if (TempPath != null)
+                return TempPath;
+            if (IsPortableMode())
+                try
+                {
+                    Directory.CreateDirectory(Path.Combine(Application.StartupPath, "temp"));
+                }
+                catch (Exception e)
+                {
                     TempPath = Path.GetTempPath();
-            }
+                    Logging.LogUsefulException(e);
+                }
+                finally
+                {
+                    // don't use "/", it will fail when we call explorer /select xxx/temp\xxx.log
+                    TempPath = Path.Combine(Application.StartupPath, "temp");
+                }
+            else
+                TempPath = Path.GetTempPath();
             return TempPath;
         }
 
@@ -95,13 +94,13 @@ namespace Shadowsocks.Util
         public static string UnGzip(byte[] buf)
         {
             byte[] buffer = new byte[1024];
-            int n;
             using (MemoryStream sb = new MemoryStream())
             {
                 using (GZipStream input = new GZipStream(new MemoryStream(buf),
                                                          CompressionMode.Decompress,
                                                          false))
                 {
+                    int n;
                     while ((n = input.Read(buffer, 0, buffer.Length)) > 0)
                     {
                         sb.Write(buffer, 0, n);

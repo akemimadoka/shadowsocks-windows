@@ -41,7 +41,7 @@ namespace Shadowsocks.Controller
             handler.tcprelay = this;
 
             handler.Start(firstPacket, length);
-            IList<TCPHandler> handlersToClose = new List<TCPHandler>();
+            List<TCPHandler> handlersToClose = new List<TCPHandler>();
             lock (Handlers)
             {
                 Handlers.Add(handler);
@@ -49,9 +49,7 @@ namespace Shadowsocks.Controller
                 if (now - _lastSweepTime > TimeSpan.FromSeconds(1))
                 {
                     _lastSweepTime = now;
-                    foreach (TCPHandler handler1 in Handlers)
-                        if (now - handler1.lastActivity > TimeSpan.FromSeconds(900))
-                            handlersToClose.Add(handler1);
+                    handlersToClose.AddRange(Handlers.Where(handler1 => now - handler1.lastActivity > TimeSpan.FromSeconds(900)));
                 }
             }
             foreach (TCPHandler handler1 in handlersToClose)
@@ -297,13 +295,16 @@ namespace Shadowsocks.Controller
                 if (bytesRead >= 3)
                 {
                     _command = _connetionRecvBuffer[1];
-                    if (_command == 1)
+                    switch (_command)
                     {
-                        byte[] response = { 5, 0, 0, 1, 0, 0, 0, 0, 0, 0 };
-                        connection.BeginSend(response, 0, response.Length, SocketFlags.None, new AsyncCallback(ResponseCallback), null);
+                        case 1:
+                            byte[] response = { 5, 0, 0, 1, 0, 0, 0, 0, 0, 0 };
+                            connection.BeginSend(response, 0, response.Length, SocketFlags.None, new AsyncCallback(ResponseCallback), null);
+                            break;
+                        case 3:
+                            HandleUDPAssociate();
+                            break;
                     }
-                    else if (_command == 3)
-                        HandleUDPAssociate();
                 }
                 else
                 {
@@ -468,7 +469,7 @@ namespace Shadowsocks.Controller
 
         private void ProxyConnectCallback(IAsyncResult ar)
         {
-            Server server = null;
+            Server server;
             if (_closed)
             {
                 return;

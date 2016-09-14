@@ -77,8 +77,11 @@ namespace Shadowsocks.Encryption
                 }
                 else
                 {
-                    md5sum.CopyTo(result, 0);
-                    password.CopyTo(result, md5sum.Length);
+                    if (md5sum != null)
+                    {
+                        md5sum.CopyTo(result, 0);
+                        password.CopyTo(result, md5sum.Length);
+                    }
                     md5sum = MbedTLS.MD5(result);
                 }
                 md5sum.CopyTo(key, i);
@@ -220,16 +223,15 @@ namespace Shadowsocks.Encryption
 
         private void OtaAuthBuffer(byte[] buf, ref int length)
         {
-            if (OnetimeAuth && ivLen > 0)
+            if (!OnetimeAuth || ivLen <= 0)
+                return;
+            if (!IsUDP)
             {
-                if (!IsUDP)
-                {
-                    OtaAuthBuffer4Tcp(buf, ref length);
-                }
-                else
-                {
-                    OtaAuthBuffer4Udp(buf, ref length);
-                }
+                OtaAuthBuffer4Tcp(buf, ref length);
+            }
+            else
+            {
+                OtaAuthBuffer4Udp(buf, ref length);
             }
         }
 

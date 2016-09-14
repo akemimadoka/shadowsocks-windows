@@ -36,8 +36,7 @@ namespace Shadowsocks.Model
         {
             if (index >= 0 && index < configs.Count)
                 return configs[index];
-            else
-                return GetDefaultServer();
+            return GetDefaultServer();
         }
 
         public static void CheckServer(Server server)

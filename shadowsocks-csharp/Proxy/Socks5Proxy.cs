@@ -52,9 +52,11 @@ namespace Shadowsocks.Proxy
 
         public void BeginConnectProxy(EndPoint remoteEP, AsyncCallback callback, object state)
         {
-            var st = new Socks5State();
-            st.Callback = callback;
-            st.AsyncState = state;
+            var st = new Socks5State
+            {
+                Callback = callback,
+                AsyncState = state
+            };
 
             ProxyEndPoint = remoteEP;
 
@@ -75,8 +77,8 @@ namespace Shadowsocks.Proxy
         {
             DestEndPoint = destEndPoint;
 
-            byte[] request = null;
-            byte atyp = 0;
+            byte[] request;
+            byte atyp;
             int port;
 
             var dep = destEndPoint as DnsEndPoint;
@@ -122,9 +124,11 @@ namespace Shadowsocks.Proxy
             request[request.Length - 2] = (byte) ((port >> 8) & 0xff);
             request[request.Length - 1] = (byte) (port & 0xff);
 
-            var st = new Socks5State();
-            st.Callback = callback;
-            st.AsyncState = state;
+            var st = new Socks5State
+            {
+                Callback = callback,
+                AsyncState = state
+            };
 
             _remote?.BeginSend(request, 0, request.Length, 0, Socks5RequestSendCallback, st);
         }

@@ -91,7 +91,7 @@ namespace Shadowsocks.Controller
             public void Receive()
             {
                 EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
-                Logging.Debug($"++++++Receive Server Port, size:" + _buffer.Length);
+                Logging.Debug($"++++++Receive Server Port, size: {_buffer.Length}");
                 _remote?.BeginReceiveFrom(_buffer, 0, _buffer.Length, 0, ref remoteEndPoint, new AsyncCallback(RecvFromCallback), null);
             }
 
@@ -166,14 +166,12 @@ namespace Shadowsocks.Controller
         public V get(K key)
         {
             LinkedListNode<LRUCacheItem<K, V>> node;
-            if (cacheMap.TryGetValue(key, out node))
-            {
-                V value = node.Value.value;
-                lruList.Remove(node);
-                lruList.AddLast(node);
-                return value;
-            }
-            return default(V);
+            if (!cacheMap.TryGetValue(key, out node))
+                return default(V);
+            V value = node.Value.value;
+            lruList.Remove(node);
+            lruList.AddLast(node);
+            return value;
         }
 
         [MethodImpl(MethodImplOptions.Synchronized)]

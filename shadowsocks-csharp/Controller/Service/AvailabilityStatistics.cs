@@ -193,11 +193,10 @@ namespace Shadowsocks.Controller
                 }
             }
 
-            if (!Config.Ping)
-            {
-                Save();
-                FilterRawStatistics();
-            }
+            if (Config.Ping)
+                return;
+            Save();
+            FilterRawStatistics();
         }
 
         private void ping_Completed(object sender, MyPing.CompletedEventArgs e)
@@ -212,11 +211,10 @@ namespace Shadowsocks.Controller
                 AppendRecord(server.Identifier(), record);
             }
             Logging.Debug($"Ping {server.FriendlyName()} {e.RoundtripTime.Count} times, {(100 - record.PackageLoss * 100)}% packages loss, min {record.MinResponse} ms, max {record.MaxResponse} ms, avg {record.AverageResponse} ms");
-            if (Interlocked.Decrement(ref state.counter) == 0)
-            {
-                Save();
-                FilterRawStatistics();
-            }
+            if (Interlocked.Decrement(ref state.counter) != 0)
+                return;
+            Save();
+            FilterRawStatistics();
         }
 
         private void AppendRecord(string serverIdentifier, StatisticsRecord record)
@@ -249,11 +247,10 @@ namespace Shadowsocks.Controller
             }
             try
             {
-                string content;
 #if DEBUG
-                content = JsonConvert.SerializeObject(RawStatistics, Formatting.Indented);
+                var content = JsonConvert.SerializeObject(RawStatistics, Formatting.Indented);
 #else
-                content = JsonConvert.SerializeObject(RawStatistics, Formatting.None);
+                var content = JsonConvert.SerializeObject(RawStatistics, Formatting.None);
 #endif
                 File.WriteAllText(AvailabilityStatisticsFile, content);
             }
@@ -265,11 +262,7 @@ namespace Shadowsocks.Controller
 
         private bool IsValidRecord(StatisticsRecord record)
         {
-            if (Config.ByHourOfDay)
-            {
-                if (!record.Timestamp.Hour.Equals(DateTime.Now.Hour)) return false;
-            }
-            return true;
+            return !Config.ByHourOfDay || record.Timestamp.Hour.Equals(DateTime.Now.Hour);
         }
 
         private void FilterRawStatistics()
@@ -336,8 +329,7 @@ namespace Shadowsocks.Controller
         {
             _latencyRecords.GetOrAdd(server.Identifier(), (k) =>
             {
-                List<int> records = new List<int>();
-                records.Add(latency);
+                List<int> records = new List<int> {latency};
                 return records;
             });
         }

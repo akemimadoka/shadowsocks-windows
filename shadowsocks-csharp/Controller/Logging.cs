@@ -22,8 +22,7 @@ namespace Shadowsocks.Controller
                 LogFilePath = Utils.GetTempPath("shadowsocks.log");
 
                 _fs = new FileStream(LogFilePath, FileMode.Append);
-                _sw = new StreamWriterWithTimestamp(_fs);
-                _sw.AutoFlush = true;
+                _sw = new StreamWriterWithTimestamp(_fs) {AutoFlush = true};
                 Console.SetOut(_sw);
                 Console.SetError(_sw);
 
@@ -74,9 +73,9 @@ namespace Shadowsocks.Controller
         {
             if (header == null && tailer == null)
                 Debug($"{local} => {remote} (size={len})");
-            else if (header == null && tailer != null)
+            else if (header == null)
                 Debug($"{local} => {remote} (size={len}), {tailer}");
-            else if (header != null && tailer == null)
+            else if (tailer == null)
                 Debug($"{header}: {local} => {remote} (size={len})");
             else
                 Debug($"{header}: {local} => {remote} (size={len}), {tailer}");
@@ -91,33 +90,31 @@ namespace Shadowsocks.Controller
         public static void LogUsefulException(Exception e)
         {
             // just log useful exceptions, not all of them
-            if (e is SocketException)
+            var exception = e as SocketException;
+            if (exception != null)
             {
-                SocketException se = (SocketException)e;
-                if (se.SocketErrorCode == SocketError.ConnectionAborted)
+                SocketException se = exception;
+                switch (se.SocketErrorCode)
                 {
-                    // closed by browser when sending
-                    // normally happens when download is canceled or a tab is closed before page is loaded
-                }
-                else if (se.SocketErrorCode == SocketError.ConnectionReset)
-                {
-                    // received rst
-                }
-                else if (se.SocketErrorCode == SocketError.NotConnected)
-                {
-                    // The application tried to send or receive data, and the System.Net.Sockets.Socket is not connected.
-                }
-                else if (se.SocketErrorCode == SocketError.HostUnreachable)
-                {
-                    // There is no network route to the specified host.
-                }
-                else if (se.SocketErrorCode == SocketError.TimedOut)
-                {
-                    // The connection attempt timed out, or the connected host has failed to respond.
-                }
-                else
-                {
-                    Info(e);
+                    case SocketError.ConnectionAborted:
+                        // closed by browser when sending
+                        // normally happens when download is canceled or a tab is closed before page is loaded
+                        break;
+                    case SocketError.ConnectionReset:
+                        // received rst
+                        break;
+                    case SocketError.NotConnected:
+                        // The application tried to send or receive data, and the System.Net.Sockets.Socket is not connected.
+                        break;
+                    case SocketError.HostUnreachable:
+                        // There is no network route to the specified host.
+                        break;
+                    case SocketError.TimedOut:
+                        // The connection attempt timed out, or the connected host has failed to respond.
+                        break;
+                    default:
+                        Info(exception);
+                        break;
                 }
             }
             else if (e is ObjectDisposedException)

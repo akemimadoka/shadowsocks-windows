@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -99,10 +100,7 @@ namespace Shadowsocks.Controller
 
         protected void ReportError(Exception e)
         {
-            if (Errored != null)
-            {
-                Errored(this, new ErrorEventArgs(e));
-            }
+            Errored?.Invoke(this, new ErrorEventArgs(e));
         }
 
         public Server GetCurrentServer()
@@ -129,14 +127,7 @@ namespace Shadowsocks.Controller
 
         public IStrategy GetCurrentStrategy()
         {
-            foreach (var strategy in _strategyManager.GetStrategies())
-            {
-                if (strategy.ID == this._config.strategy)
-                {
-                    return strategy;
-                }
-            }
-            return null;
+            return _strategyManager.GetStrategies().FirstOrDefault(strategy => strategy.ID == _config.strategy);
         }
 
         public Server GetAServer(IStrategyCallerType type, IPEndPoint localIPEndPoint)
@@ -188,10 +179,7 @@ namespace Shadowsocks.Controller
             _config.enabled = enabled;
             UpdateSystemProxy();
             SaveConfig(_config);
-            if (EnableStatusChanged != null)
-            {
-                EnableStatusChanged(this, new EventArgs());
-            }
+            EnableStatusChanged?.Invoke(this, new EventArgs());
         }
 
         public void ToggleGlobal(bool global)
@@ -199,20 +187,14 @@ namespace Shadowsocks.Controller
             _config.global = global;
             UpdateSystemProxy();
             SaveConfig(_config);
-            if (EnableGlobalChanged != null)
-            {
-                EnableGlobalChanged(this, new EventArgs());
-            }
+            EnableGlobalChanged?.Invoke(this, new EventArgs());
         }
 
         public void ToggleShareOverLAN(bool enabled)
         {
             _config.shareOverLan = enabled;
             SaveConfig(_config);
-            if (ShareOverLANStatusChanged != null)
-            {
-                ShareOverLANStatusChanged(this, new EventArgs());
-            }
+            ShareOverLANStatusChanged?.Invoke(this, new EventArgs());
         }
 
         public void DisableProxy()
@@ -233,9 +215,7 @@ namespace Shadowsocks.Controller
         {
             _config.isVerboseLogging = enabled;
             SaveConfig(_config);
-            if ( VerboseLoggingStatusChanged != null ) {
-                VerboseLoggingStatusChanged(this, new EventArgs());
-            }
+            VerboseLoggingStatusChanged?.Invoke(this, new EventArgs());
         }
 
         public void SelectServerIndex(int index)
@@ -259,14 +239,8 @@ namespace Shadowsocks.Controller
                 return;
             }
             stopped = true;
-            if (_listener != null)
-            {
-                _listener.Stop();
-            }
-            if (polipoRunner != null)
-            {
-                polipoRunner.Stop();
-            }
+            _listener?.Stop();
+            polipoRunner?.Stop();
             if (_config.enabled)
             {
                 SystemProxy.Update(_config, true);
@@ -276,19 +250,13 @@ namespace Shadowsocks.Controller
         public void TouchPACFile()
         {
             string pacFilename = _pacServer.TouchPACFile();
-            if (PACFileReadyToOpen != null)
-            {
-                PACFileReadyToOpen(this, new PathEventArgs() { Path = pacFilename });
-            }
+            PACFileReadyToOpen?.Invoke(this, new PathEventArgs() { Path = pacFilename });
         }
 
         public void TouchUserRuleFile()
         {
             string userRuleFilename = _pacServer.TouchUserRuleFile();
-            if (UserRuleFileReadyToOpen != null)
-            {
-                UserRuleFileReadyToOpen(this, new PathEventArgs() { Path = userRuleFilename });
-            }
+            UserRuleFileReadyToOpen?.Invoke(this, new PathEventArgs() { Path = userRuleFilename });
         }
 
         public string GetQRCodeForCurrentServer()
@@ -308,10 +276,7 @@ namespace Shadowsocks.Controller
 
         public void UpdatePACFromGFWList()
         {
-            if (gfwListUpdater != null)
-            {
-                gfwListUpdater.UpdatePACFromGFWList(_config);
-            }
+            gfwListUpdater?.UpdatePACFromGFWList(_config);
         }
 
         public void UpdateStatisticsConfiguration(bool enabled)
@@ -327,10 +292,7 @@ namespace Shadowsocks.Controller
             _config.pacUrl = pacUrl;
             UpdateSystemProxy();
             SaveConfig(_config);
-            if (ConfigChanged != null)
-            {
-                ConfigChanged(this, new EventArgs());
-            }
+            ConfigChanged?.Invoke(this, new EventArgs());
         }
 
         public void UseOnlinePAC(bool useOnlinePac)
@@ -338,10 +300,7 @@ namespace Shadowsocks.Controller
             _config.useOnlinePac = useOnlinePac;
             UpdateSystemProxy();
             SaveConfig(_config);
-            if (ConfigChanged != null)
-            {
-                ConfigChanged(this, new EventArgs());
-            }
+            ConfigChanged?.Invoke(this, new EventArgs());
         }
 
         public void ToggleCheckingUpdate(bool enabled)
@@ -408,10 +367,7 @@ namespace Shadowsocks.Controller
 
             availabilityStatistics.UpdateConfiguration(this);
 
-            if (_listener != null)
-            {
-                _listener.Stop();
-            }
+            _listener?.Stop();
             // don't put polipoRunner.Start() before pacServer.Stop()
             // or bind will fail when switching bind address from 0.0.0.0 to 127.0.0.1
             // though UseShellExecute is set to true now
@@ -441,22 +397,17 @@ namespace Shadowsocks.Controller
             {
                 // translate Microsoft language into human language
                 // i.e. An attempt was made to access a socket in a way forbidden by its access permissions => Port already in use
-                if (e is SocketException)
+                var exception = e as SocketException;
+                SocketException se = exception;
+                if (se?.SocketErrorCode == SocketError.AccessDenied)
                 {
-                    SocketException se = (SocketException)e;
-                    if (se.SocketErrorCode == SocketError.AccessDenied)
-                    {
-                        e = new Exception(I18N.GetString("Port already in use"), e);
-                    }
+                    e = new Exception(I18N.GetString("Port already in use"), e);
                 }
                 Logging.LogUsefulException(e);
                 ReportError(e);
             }
 
-            if (ConfigChanged != null)
-            {
-                ConfigChanged(this, new EventArgs());
-            }
+            ConfigChanged?.Invoke(this, new EventArgs());
 
             UpdateSystemProxy();
             Utils.ReleaseMemory(true);
@@ -478,11 +429,10 @@ namespace Shadowsocks.Controller
             else
             {
                 // only switch it off if we have switched it on
-                if (_systemProxyIsDirty)
-                {
-                    SystemProxy.Update(_config, false);
-                    _systemProxyIsDirty = false;
-                }
+                if (!_systemProxyIsDirty)
+                    return;
+                SystemProxy.Update(_config, false);
+                _systemProxyIsDirty = false;
             }
         }
 
@@ -493,14 +443,12 @@ namespace Shadowsocks.Controller
 
         private void pacServer_PACUpdateCompleted(object sender, GFWListUpdater.ResultEventArgs e)
         {
-            if (UpdatePACFromGFWListCompleted != null)
-                UpdatePACFromGFWListCompleted(this, e);
+            UpdatePACFromGFWListCompleted?.Invoke(this, e);
         }
 
         private void pacServer_PACUpdateError(object sender, ErrorEventArgs e)
         {
-            if (UpdatePACFromGFWListError != null)
-                UpdatePACFromGFWListError(this, e);
+            UpdatePACFromGFWListError?.Invoke(this, e);
         }
 
         private static readonly IEnumerable<char> IgnoredLineBegins = new[] { '!', '[' };
@@ -518,12 +466,7 @@ namespace Shadowsocks.Controller
                 string local = File.ReadAllText(PACServer.USER_RULE_FILE, Encoding.UTF8);
                 using (var sr = new StringReader(local))
                 {
-                    foreach (var rule in sr.NonWhiteSpaceLines())
-                    {
-                        if (rule.BeginWithAny(IgnoredLineBegins))
-                            continue;
-                        lines.Add(rule);
-                    }
+                    lines.AddRange(sr.NonWhiteSpaceLines().Where(rule => !rule.BeginWithAny(IgnoredLineBegins)));
                 }
             }
             string abpContent;
@@ -549,8 +492,7 @@ namespace Shadowsocks.Controller
 
         private void StartReleasingMemory()
         {
-            _ramThread = new Thread(new ThreadStart(ReleaseMemory));
-            _ramThread.IsBackground = true;
+            _ramThread = new Thread(ReleaseMemory) {IsBackground = true};
             _ramThread.Start();
         }
 
@@ -570,8 +512,7 @@ namespace Shadowsocks.Controller
             {
                 traffic.Enqueue(new TrafficPerSecond());
             }
-            _trafficThread = new Thread(new ThreadStart(() => TrafficStatistics(queueMaxSize)));
-            _trafficThread.IsBackground = true;
+            _trafficThread = new Thread(() => TrafficStatistics(queueMaxSize)) {IsBackground = true};
             _trafficThread.Start();
         }
 

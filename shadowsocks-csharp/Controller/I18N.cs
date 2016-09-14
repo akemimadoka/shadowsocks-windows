@@ -32,29 +32,21 @@ namespace Shadowsocks.Controller
         {
             Strings = new Dictionary<string, string>();
             string name = CultureInfo.CurrentCulture.Name;
-            if (name.StartsWith("zh"))
+            if (!name.StartsWith("zh"))
+                return;
+            if (name == "zh" || name == "zh-CN")
             {
-                if (name == "zh" || name == "zh-CN")
-                {
-                    Init(Resources.cn);
-                }
-                else
-                {
-                    Init(Resources.zh_tw);
-                }
+                Init(Resources.cn);
+            }
+            else
+            {
+                Init(Resources.zh_tw);
             }
         }
 
         public static string GetString(string key)
         {
-            if (Strings.ContainsKey(key))
-            {
-                return Strings[key];
-            }
-            else
-            {
-                return key;
-            }
+            return Strings.ContainsKey(key) ? Strings[key] : key;
         }
     }
 }

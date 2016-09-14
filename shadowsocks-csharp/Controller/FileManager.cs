@@ -16,8 +16,7 @@ namespace Shadowsocks.Controller
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Exception caught in process: {0}",
-                                  ex.ToString());
+                Console.WriteLine($"Exception caught in process: {ex}");
             }
             return false;
         }

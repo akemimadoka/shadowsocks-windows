@@ -16,7 +16,7 @@ namespace Shadowsocks.Util.ProcessManagement
             var commandLine = new StringBuilder(process.MainModule.FileName);
 
             commandLine.Append(" ");
-            using (var searcher = new ManagementObjectSearcher("SELECT CommandLine FROM Win32_Process WHERE ProcessId = " + process.Id))
+            using (var searcher = new ManagementObjectSearcher(new SelectQuery("Win32_Process", $"ProcessId = {process.Id}", new[] { "CommandLine" })))
             {
                 foreach (var @object in searcher.Get())
                 {

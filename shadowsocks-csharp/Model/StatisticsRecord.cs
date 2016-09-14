@@ -67,12 +67,11 @@ namespace Shadowsocks.Model
                 MaxOutboundSpeed = outbound.Max();
             }
             var latency = latencyRecords?.Where(s => s > 0).ToList();
-            if (latency!= null && latency.Any())
-            {
-                AverageLatency = (int) latency.Average();
-                MinLatency = latency.Min();
-                MaxLatency = latency.Max();
-            }
+            if (latency == null || !latency.Any())
+                return;
+            AverageLatency = (int) latency.Average();
+            MinLatency = latency.Min();
+            MaxLatency = latency.Max();
         }
 
         public StatisticsRecord(string identifier, ICollection<int?> responseRecords)

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 
@@ -26,7 +27,7 @@ namespace Shadowsocks.Controller
 
             public ResultEventArgs(bool success)
             {
-                this.Success = success;
+                Success = success;
             }
         }
 
@@ -42,12 +43,7 @@ namespace Shadowsocks.Controller
                     string local = File.ReadAllText(PACServer.USER_RULE_FILE, Encoding.UTF8);
                     using (var sr = new StringReader(local))
                     {
-                        foreach (var rule in sr.NonWhiteSpaceLines())
-                        {
-                            if (rule.BeginWithAny(IgnoredLineBegins))
-                                continue;
-                            lines.Add(rule);
-                        }
+                        lines.AddRange(sr.NonWhiteSpaceLines().Where(rule => !rule.BeginWithAny(IgnoredLineBegins)));
                     }
                 }
                 string abpContent;
@@ -65,22 +61,16 @@ namespace Shadowsocks.Controller
                     string original = File.ReadAllText(PACServer.PAC_FILE, Encoding.UTF8);
                     if (original == abpContent)
                     {
-                        UpdateCompleted(this, new ResultEventArgs(false));
+                        UpdateCompleted?.Invoke(this, new ResultEventArgs(false));
                         return;
                     }
                 }
                 File.WriteAllText(PACServer.PAC_FILE, abpContent, Encoding.UTF8);
-                if (UpdateCompleted != null)
-                {
-                    UpdateCompleted(this, new ResultEventArgs(true));
-                }
+                UpdateCompleted?.Invoke(this, new ResultEventArgs(true));
             }
             catch (Exception ex)
             {
-                if (Error != null)
-                {
-                    Error(this, new ErrorEventArgs(ex));
-                }
+                Error?.Invoke(this, new ErrorEventArgs(ex));
             }
         }
 
@@ -99,12 +89,7 @@ namespace Shadowsocks.Controller
             List<string> valid_lines = new List<string>();
             using (var sr = new StringReader(content))
             {
-                foreach (var line in sr.NonWhiteSpaceLines())
-                {
-                    if (line.BeginWithAny(IgnoredLineBegins))
-                        continue;
-                    valid_lines.Add(line);
-                }
+                valid_lines.AddRange(sr.NonWhiteSpaceLines().Where(line => !line.BeginWithAny(IgnoredLineBegins)));
             }
             return valid_lines;
         }

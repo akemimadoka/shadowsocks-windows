@@ -5,7 +5,6 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-
 using Shadowsocks.Model;
 using Shadowsocks.Properties;
 using Shadowsocks.Util;
@@ -27,13 +26,13 @@ namespace Shadowsocks.Controller
 
         public PACServer()
         {
-            this.WatchPacFile();
-            this.WatchUserRuleFile();
+            WatchPacFile();
+            WatchUserRuleFile();
         }
 
         public void UpdateConfiguration(Configuration config)
         {
-            this._config = config;
+            _config = config;
         }
 
         public override bool Handle(byte[] firstPacket, int length, Socket socket, object state)
@@ -49,39 +48,38 @@ namespace Shadowsocks.Controller
                 bool hostMatch = false, pathMatch = false, useSocks = false;
                 foreach (string line in lines)
                 {
-                    string[] kv = line.Split(new char[] { ':' }, 2);
-                    if (kv.Length == 2)
+                    string[] kv = line.Split(new[] { ':' }, 2);
+                    switch (kv.Length)
                     {
-                        if (kv[0] == "Host")
-                        {
-                            if (kv[1].Trim() == ((IPEndPoint)socket.LocalEndPoint).ToString())
+                        case 2:
+                            if (kv[0] == "Host")
                             {
-                                hostMatch = true;
+                                if (kv[1].Trim() == ((IPEndPoint)socket.LocalEndPoint).ToString())
+                                {
+                                    hostMatch = true;
+                                }
                             }
-                        }
-                        //else if (kv[0] == "User-Agent")
-                        //{
-                        //    // we need to drop connections when changing servers
-                        //    if (kv[1].IndexOf("Chrome") >= 0)
-                        //    {
-                        //        useSocks = true;
-                        //    }
-                        //}
-                    }
-                    else if (kv.Length == 1)
-                    {
-                        if (line.IndexOf("pac", StringComparison.Ordinal) >= 0)
-                        {
-                            pathMatch = true;
-                        }
+                            //else if (kv[0] == "User-Agent")
+                            //{
+                            //    // we need to drop connections when changing servers
+                            //    if (kv[1].IndexOf("Chrome") >= 0)
+                            //    {
+                            //        useSocks = true;
+                            //    }
+                            //}
+                            break;
+                        
+                        case 1:
+                            if (line.IndexOf("pac", StringComparison.Ordinal) >= 0)
+                            {
+                                pathMatch = true;
+                            }
+                            break;
                     }
                 }
-                if (hostMatch && pathMatch)
-                {
-                    SendResponse(firstPacket, length, socket, useSocks);
-                    return true;
-                }
-                return false;
+                if (!hostMatch || !pathMatch) return false;
+                SendResponse(firstPacket, length, socket, useSocks);
+                return true;
             }
             catch (ArgumentException)
             {
@@ -95,11 +93,8 @@ namespace Shadowsocks.Controller
             {
                 return PAC_FILE;
             }
-            else
-            {
-                FileManager.UncompressFile(PAC_FILE, Resources.proxy_pac_txt);
-                return PAC_FILE;
-            }
+            FileManager.UncompressFile(PAC_FILE, Resources.proxy_pac_txt);
+            return PAC_FILE;
         }
 
         internal string TouchUserRuleFile()
@@ -108,23 +103,13 @@ namespace Shadowsocks.Controller
             {
                 return USER_RULE_FILE;
             }
-            else
-            {
-                File.WriteAllText(USER_RULE_FILE, Resources.user_rule);
-                return USER_RULE_FILE;
-            }
+            File.WriteAllText(USER_RULE_FILE, Resources.user_rule);
+            return USER_RULE_FILE;
         }
 
         private string GetPACContent()
         {
-            if (File.Exists(PAC_FILE))
-            {
-                return File.ReadAllText(PAC_FILE, Encoding.UTF8);
-            }
-            else
-            {
-                return Utils.UnGzip(Resources.proxy_pac_txt);
-            }
+            return File.Exists(PAC_FILE) ? File.ReadAllText(PAC_FILE, Encoding.UTF8) : Utils.UnGzip(Resources.proxy_pac_txt);
         }
 
         public void SendResponse(byte[] firstPacket, int length, Socket socket, bool useSocks)
@@ -139,15 +124,15 @@ namespace Shadowsocks.Controller
 
                 pac = pac.Replace("__PROXY__", proxy);
 
-                string text = String.Format(@"HTTP/1.1 200 OK
+                string text = $@"HTTP/1.1 200 OK
 Server: Shadowsocks
 Content-Type: application/x-ns-proxy-autoconfig
-Content-Length: {0}
+Content-Length: {Encoding.UTF8.GetBytes(pac).Length}
 Connection: Close
 
-", Encoding.UTF8.GetBytes(pac).Length) + pac;
+" + pac;
                 byte[] response = Encoding.UTF8.GetBytes(text);
-                socket.BeginSend(response, 0, response.Length, 0, new AsyncCallback(SendCallback), socket);
+                socket.BeginSend(response, 0, response.Length, 0, SendCallback, socket);
                 Utils.ReleaseMemory(true);
             }
             catch (Exception e)
@@ -165,18 +150,19 @@ Connection: Close
                 conn.Shutdown(SocketShutdown.Send);
             }
             catch
-            { }
+            {
+                // ignored
+            }
         }
 
         private void WatchPacFile()
         {
-            if (PACFileWatcher != null)
+            PACFileWatcher?.Dispose();
+            PACFileWatcher = new FileSystemWatcher(Directory.GetCurrentDirectory())
             {
-                PACFileWatcher.Dispose();
-            }
-            PACFileWatcher = new FileSystemWatcher(Directory.GetCurrentDirectory());
-            PACFileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName;
-            PACFileWatcher.Filter = PAC_FILE;
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName,
+                Filter = PAC_FILE
+            };
             PACFileWatcher.Changed += PACFileWatcher_Changed;
             PACFileWatcher.Created += PACFileWatcher_Changed;
             PACFileWatcher.Deleted += PACFileWatcher_Changed;
@@ -186,13 +172,12 @@ Connection: Close
 
         private void WatchUserRuleFile()
         {
-            if (UserRuleFileWatcher != null)
+            UserRuleFileWatcher?.Dispose();
+            UserRuleFileWatcher = new FileSystemWatcher(Directory.GetCurrentDirectory())
             {
-                UserRuleFileWatcher.Dispose();
-            }
-            UserRuleFileWatcher = new FileSystemWatcher(Directory.GetCurrentDirectory());
-            UserRuleFileWatcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName;
-            UserRuleFileWatcher.Filter = USER_RULE_FILE;
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName,
+                Filter = USER_RULE_FILE
+            };
             UserRuleFileWatcher.Changed += UserRuleFileWatcher_Changed;
             UserRuleFileWatcher.Created += UserRuleFileWatcher_Changed;
             UserRuleFileWatcher.Deleted += UserRuleFileWatcher_Changed;
@@ -207,39 +192,37 @@ Connection: Close
 
         private void PACFileWatcher_Changed(object sender, FileSystemEventArgs e)
         {
-            string path = e.FullPath.ToString();
+            string path = e.FullPath;
             string currentLastWriteTime = File.GetLastWriteTime(e.FullPath).ToString(CultureInfo.InvariantCulture);
 
             // if there is no path info stored yet or stored path has different time of write then the one now is inspected
-            if (!fileChangedTime.ContainsKey(path) || fileChangedTime[path].ToString() != currentLastWriteTime)
+            if (fileChangedTime.ContainsKey(path) && fileChangedTime[path].ToString() == currentLastWriteTime)
+                return;
+            if (PACFileChanged != null)
             {
-                if (PACFileChanged != null)
-                {
-                    Logging.Info($"Detected: PAC file '{e.Name}' was {e.ChangeType.ToString().ToLower()}.");
-                    PACFileChanged(this, new EventArgs());
-                }
-
-                // lastly we update the last write time in the hashtable
-                fileChangedTime[path] = currentLastWriteTime;
+                Logging.Info($"Detected: PAC file '{e.Name}' was {e.ChangeType.ToString().ToLower()}.");
+                PACFileChanged(this, new EventArgs());
             }
+
+            // lastly we update the last write time in the hashtable
+            fileChangedTime[path] = currentLastWriteTime;
         }
 
         private void UserRuleFileWatcher_Changed(object sender, FileSystemEventArgs e)
         {
-            string path = e.FullPath.ToString();
+            string path = e.FullPath;
             string currentLastWriteTime = File.GetLastWriteTime(e.FullPath).ToString(CultureInfo.InvariantCulture);
 
             // if there is no path info stored yet or stored path has different time of write then the one now is inspected
-            if (!fileChangedTime.ContainsKey(path) || fileChangedTime[path].ToString() != currentLastWriteTime)
+            if (fileChangedTime.ContainsKey(path) && fileChangedTime[path].ToString() == currentLastWriteTime)
+                return;
+            if (UserRuleFileChanged != null)
             {
-                if (UserRuleFileChanged != null)
-                {
-                    Logging.Info($"Detected: User Rule file '{e.Name}' was {e.ChangeType.ToString().ToLower()}.");
-                    UserRuleFileChanged(this, new EventArgs());
-                }
-                // lastly we update the last write time in the hashtable
-                fileChangedTime[path] = currentLastWriteTime;
+                Logging.Info($"Detected: User Rule file '{e.Name}' was {e.ChangeType.ToString().ToLower()}.");
+                UserRuleFileChanged(this, new EventArgs());
             }
+            // lastly we update the last write time in the hashtable
+            fileChangedTime[path] = currentLastWriteTime;
         }
         #endregion
 
@@ -258,7 +241,7 @@ Connection: Close
             //{
             //    Logging.LogUsefulException(e);
             //}
-            return (useSocks ? "SOCKS5 " : "PROXY ") + localEndPoint.Address + ":" + this._config.localPort + ";";
+            return (useSocks ? "SOCKS5 " : "PROXY ") + localEndPoint.Address + ":" + _config.localPort + ";";
         }
     }
 }

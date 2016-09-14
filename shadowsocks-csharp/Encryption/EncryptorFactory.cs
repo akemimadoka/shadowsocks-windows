@@ -8,7 +8,7 @@ namespace Shadowsocks.Encryption
     {
         private static Dictionary<string, Type> _registeredEncryptors;
 
-        private static Type[] _constructorTypes = new Type[] { typeof(string), typeof(string), typeof(bool), typeof(bool) };
+        private static Type[] _constructorTypes = { typeof(string), typeof(string), typeof(bool), typeof(bool) };
 
         static EncryptorFactory()
         {

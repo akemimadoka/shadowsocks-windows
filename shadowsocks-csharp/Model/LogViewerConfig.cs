@@ -40,13 +40,13 @@ namespace Shadowsocks.Model
         // Use GetBestTop() and GetBestLeft() to ensure the log viwer form can be always display IN screen. 
         public int GetBestLeft()
         {
-            width = (width >= 400) ? width : 400;  // set up the minimum size
+            width = width >= 400 ? width : 400;  // set up the minimum size
             return Screen.PrimaryScreen.WorkingArea.Width - width;
         }
 
         public int GetBestTop()
         {
-            height = (height >= 200) ? height : 200;  // set up the minimum size
+            height = height >= 200 ? height : 200;  // set up the minimum size
             return Screen.PrimaryScreen.WorkingArea.Height - height;
         }
 

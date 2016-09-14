@@ -137,12 +137,11 @@ namespace Shadowsocks.Encryption
                     Marshal.FreeHGlobal(_encryptCtx);
                     _encryptCtx = IntPtr.Zero;
                 }
-                if (_decryptCtx != IntPtr.Zero)
-                {
-                    MbedTLS.cipher_free(_decryptCtx);
-                    Marshal.FreeHGlobal(_decryptCtx);
-                    _decryptCtx = IntPtr.Zero;
-                }
+                if (_decryptCtx == IntPtr.Zero)
+                    return;
+                MbedTLS.cipher_free(_decryptCtx);
+                Marshal.FreeHGlobal(_decryptCtx);
+                _decryptCtx = IntPtr.Zero;
             }
         }
         #endregion

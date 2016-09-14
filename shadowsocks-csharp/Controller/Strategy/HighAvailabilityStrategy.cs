@@ -39,15 +39,9 @@ namespace Shadowsocks.Controller.Strategy
             _serverStatus = new Dictionary<Server, ServerStatus>();
         }
 
-        public string Name
-        {
-            get { return I18N.GetString("High Availability"); }
-        }
+        public string Name => I18N.GetString("High Availability");
 
-        public string ID
-        {
-            get { return "com.shadowsocks.strategy.ha"; }
-        }
+        public string ID => "com.shadowsocks.strategy.ha";
 
         public void ReloadServers()
         {
@@ -58,13 +52,15 @@ namespace Shadowsocks.Controller.Strategy
             {
                 if (!newServerStatus.ContainsKey(server))
                 {
-                    var status = new ServerStatus();
-                    status.server = server;
-                    status.lastFailure = DateTime.MinValue;
-                    status.lastRead = DateTime.Now;
-                    status.lastWrite = DateTime.Now;
-                    status.latency = new TimeSpan(0, 0, 0, 0, 10);
-                    status.lastTimeDetectLatency = DateTime.Now;
+                    var status = new ServerStatus
+                    {
+                        server = server,
+                        lastFailure = DateTime.MinValue,
+                        lastRead = DateTime.Now,
+                        lastWrite = DateTime.Now,
+                        latency = new TimeSpan(0, 0, 0, 0, 10),
+                        lastTimeDetectLatency = DateTime.Now
+                    };
                     newServerStatus[server] = status;
                 }
                 else
@@ -84,11 +80,7 @@ namespace Shadowsocks.Controller.Strategy
             {
                 ChooseNewServer();
             }
-            if (_currentServer == null)
-            {
-                return null;
-            }
-            return _currentServer.server;
+            return _currentServer?.server;
         }
 
         /**
@@ -110,7 +102,7 @@ namespace Shadowsocks.Controller.Strategy
                     100 * 1000 * Math.Min(5 * 60, (now - status.lastFailure).TotalSeconds)
                     -2 * 5 * (Math.Min(2000, status.latency.TotalMilliseconds) / (1 + (now - status.lastTimeDetectLatency).TotalSeconds / 30 / 10) +
                     -0.5 * 200 * Math.Min(5, (status.lastRead - status.lastWrite).TotalSeconds));
-                Logging.Debug(String.Format("server: {0} latency:{1} score: {2}", status.server.FriendlyName(), status.latency, status.score));
+                Logging.Debug($"server: {status.server.FriendlyName()} latency:{status.latency} score: {status.score}");
             }
             ServerStatus max = null;
             foreach (var status in servers)
@@ -127,14 +119,12 @@ namespace Shadowsocks.Controller.Strategy
                     }
                 }
             }
-            if (max != null)
-            {
-                if (_currentServer == null || max.score - _currentServer.score > 200)
-                {
-                    _currentServer = max;
-                    Logging.Info($"HA switching to server: {_currentServer.server.FriendlyName()}");
-                }
-            }
+            if (max == null)
+                return;
+            if (_currentServer != null && !(max.score - _currentServer.score > 200))
+                return;
+            _currentServer = max;
+            Logging.Info($"HA switching to server: {_currentServer.server.FriendlyName()}");
         }
 
         public void UpdateLatency(Model.Server server, TimeSpan latency)
@@ -142,11 +132,10 @@ namespace Shadowsocks.Controller.Strategy
             Logging.Debug($"latency: {server.FriendlyName()} {latency}");
 
             ServerStatus status;
-            if (_serverStatus.TryGetValue(server, out status))
-            {
-                status.latency = latency;
-                status.lastTimeDetectLatency = DateTime.Now;
-            }
+            if (!_serverStatus.TryGetValue(server, out status))
+                return;
+            status.latency = latency;
+            status.lastTimeDetectLatency = DateTime.Now;
         }
 
         public void UpdateLastRead(Model.Server server)

@@ -81,14 +81,16 @@ namespace Shadowsocks.Controller
                 List<Asset> asserts = new List<Asset>();
                 if (result != null)
                 {
-                    foreach (JObject release in result)
+                    foreach (var jToken in result)
                     {
+                        var release = (JObject) jToken;
                         if ((bool)release["prerelease"])
                         {
                             continue;
                         }
-                        foreach (JObject asset in (JArray)release["assets"])
+                        foreach (var jToken1 in (JArray)release["assets"])
                         {
+                            var asset = (JObject) jToken1;
                             Asset ass = new Asset();
                             ass.Parse(asset);
                             if (ass.IsNewVersion(Version))
@@ -112,10 +114,7 @@ namespace Shadowsocks.Controller
                 else
                 {
                     Logging.Debug("No update is available");
-                    if (CheckUpdateCompleted != null)
-                    {
-                        CheckUpdateCompleted(this, new EventArgs());
-                    }
+                    CheckUpdateCompleted?.Invoke(this, new EventArgs());
                 }
             }
             catch (Exception ex)
@@ -149,10 +148,7 @@ namespace Shadowsocks.Controller
                     return;
                 }
                 Logging.Debug($"New version {LatestVersionNumber} found: {LatestVersionLocalName}");
-                if (CheckUpdateCompleted != null)
-                {
-                    CheckUpdateCompleted(this, new EventArgs());
-                }
+                CheckUpdateCompleted?.Invoke(this, new EventArgs());
             }
             catch (Exception ex)
             {
@@ -204,14 +200,9 @@ namespace Shadowsocks.Controller
             private static string ParseVersionFromURL(string url)
             {
                 Match match = Regex.Match(url, @".*Shadowsocks-win.*?-([\d\.]+)\.\w+", RegexOptions.IgnoreCase);
-                if (match.Success)
-                {
-                    if (match.Groups.Count == 2)
-                    {
-                        return match.Groups[1].Value;
-                    }
-                }
-                return null;
+                if (!match.Success)
+                    return null;
+                return match.Groups.Count == 2 ? match.Groups[1].Value : null;
             }
 
             public static int CompareVersion(string l, string r)

@@ -40,7 +40,7 @@ namespace Shadowsocks.Controller
 
         public Listener(List<IService> services)
         {
-            this._services = services;
+            _services = services;
         }
 
         private bool CheckIfPortInUse(int port)
@@ -48,20 +48,13 @@ namespace Shadowsocks.Controller
             IPGlobalProperties ipProperties = IPGlobalProperties.GetIPGlobalProperties();
             IPEndPoint[] ipEndPoints = ipProperties.GetActiveTcpListeners();
 
-            foreach (IPEndPoint endPoint in ipEndPoints)
-            {
-                if (endPoint.Port == port)
-                {
-                    return true;
-                }
-            }
-            return false;
+            return ipEndPoints.Any(endPoint => endPoint.Port == port);
         }
 
         public void Start(Configuration config)
         {
-            this._config = config;
-            this._shareOverLAN = config.shareOverLan;
+            _config = config;
+            _shareOverLAN = config.shareOverLan;
 
             if (CheckIfPortInUse(_config.localPort))
                 throw new Exception(I18N.GetString("Port already in use"));
@@ -85,9 +78,8 @@ namespace Shadowsocks.Controller
 
                 // Start an asynchronous socket to listen for connections.
                 Logging.Info("Shadowsocks started");
-                _tcpSocket.BeginAccept(new AsyncCallback(AcceptCallback), _tcpSocket);
-                UDPState udpState = new UDPState();
-                udpState.socket = _udpSocket;
+                _tcpSocket.BeginAccept(AcceptCallback, _tcpSocket);
+                UDPState udpState = new UDPState {socket = _udpSocket};
                 _udpSocket.BeginReceiveFrom(udpState.buffer, 0, udpState.buffer.Length, 0, ref udpState.remoteEndPoint, new AsyncCallback(RecvFromCallback), udpState);
             }
             catch (SocketException)
@@ -147,6 +139,7 @@ namespace Shadowsocks.Controller
                 }
                 catch (Exception)
                 {
+                    // ignored
                 }
             }
         }
@@ -159,13 +152,13 @@ namespace Shadowsocks.Controller
                 Socket conn = listener.EndAccept(ar);
 
                 byte[] buf = new byte[4096];
-                object[] state = new object[] {
+                object[] state = {
                     conn,
                     buf
                 };
 
                 conn.BeginReceive(buf, 0, buf.Length, 0,
-                    new AsyncCallback(ReceiveCallback), state);
+                    ReceiveCallback, state);
             }
             catch (ObjectDisposedException)
             {
@@ -179,7 +172,7 @@ namespace Shadowsocks.Controller
                 try
                 {
                     listener.BeginAccept(
-                        new AsyncCallback(AcceptCallback),
+                        AcceptCallback,
                         listener);
                 }
                 catch (ObjectDisposedException)
@@ -202,12 +195,9 @@ namespace Shadowsocks.Controller
             try
             {
                 int bytesRead = conn.EndReceive(ar);
-                foreach (IService service in _services)
+                if (_services.Any(service => service.Handle(buf, bytesRead, conn, null)))
                 {
-                    if (service.Handle(buf, bytesRead, conn, null))
-                    {
-                        return;
-                    }
+                    return;
                 }
                 // no service found for this
                 if (conn.ProtocolType == ProtocolType.Tcp)

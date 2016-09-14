@@ -11,7 +11,7 @@ namespace Shadowsocks.Controller
 
         public PortForwarder(int targetPort)
         {
-            this._targetPort = targetPort;
+            _targetPort = targetPort;
         }
 
         public override bool Handle(byte[] firstPacket, int length, Socket socket, object state)
@@ -20,7 +20,7 @@ namespace Shadowsocks.Controller
             {
                 return false;
             }
-            new Handler().Start(firstPacket, length, socket, this._targetPort);
+            new Handler().Start(firstPacket, length, socket, _targetPort);
             return true;
         }
 
@@ -30,9 +30,9 @@ namespace Shadowsocks.Controller
             private int _firstPacketLength;
             private Socket _local;
             private Socket _remote;
-            private bool _closed = false;
-            private bool _localShutdown = false;
-            private bool _remoteShutdown = false;
+            private bool _closed;
+            private bool _localShutdown;
+            private bool _remoteShutdown;
             public const int RecvSize = 16384;
             // remote receive buffer
             private byte[] remoteRecvBuffer = new byte[RecvSize];
@@ -41,9 +41,9 @@ namespace Shadowsocks.Controller
 
             public void Start(byte[] firstPacket, int length, Socket socket, int targetPort)
             {
-                this._firstPacket = firstPacket;
-                this._firstPacketLength = length;
-                this._local = socket;
+                _firstPacket = firstPacket;
+                _firstPacketLength = length;
+                _local = socket;
                 try
                 {
                     EndPoint remoteEP = SocketUtil.GetEndPoint("localhost", targetPort);
@@ -54,7 +54,7 @@ namespace Shadowsocks.Controller
                 catch (Exception e)
                 {
                     Logging.LogUsefulException(e);
-                    this.Close();
+                    Close();
                 }
             }
 
@@ -72,7 +72,7 @@ namespace Shadowsocks.Controller
                 catch (Exception e)
                 {
                     Logging.LogUsefulException(e);
-                    this.Close();
+                    Close();
                 }
             }
 
@@ -84,12 +84,12 @@ namespace Shadowsocks.Controller
                 }
                 try
                 {
-                    _remote.BeginSend(_firstPacket, 0, _firstPacketLength, 0, new AsyncCallback(StartPipe), null);
+                    _remote.BeginSend(_firstPacket, 0, _firstPacketLength, 0, StartPipe, null);
                 }
                 catch (Exception e)
                 {
                     Logging.LogUsefulException(e);
-                    this.Close();
+                    Close();
                 }
             }
 
@@ -103,14 +103,14 @@ namespace Shadowsocks.Controller
                 {
                     _remote.EndSend(ar);
                     _remote.BeginReceive(remoteRecvBuffer, 0, RecvSize, 0,
-                        new AsyncCallback(PipeRemoteReceiveCallback), null);
+                        PipeRemoteReceiveCallback, null);
                     _local.BeginReceive(connetionRecvBuffer, 0, RecvSize, 0,
-                        new AsyncCallback(PipeConnectionReceiveCallback), null);
+                        PipeConnectionReceiveCallback, null);
                 }
                 catch (Exception e)
                 {
                     Logging.LogUsefulException(e);
-                    this.Close();
+                    Close();
                 }
             }
 
@@ -126,7 +126,7 @@ namespace Shadowsocks.Controller
 
                     if (bytesRead > 0)
                     {
-                        _local.BeginSend(remoteRecvBuffer, 0, bytesRead, 0, new AsyncCallback(PipeConnectionSendCallback), null);
+                        _local.BeginSend(remoteRecvBuffer, 0, bytesRead, 0, PipeConnectionSendCallback, null);
                     }
                     else
                     {
@@ -138,7 +138,7 @@ namespace Shadowsocks.Controller
                 catch (Exception e)
                 {
                     Logging.LogUsefulException(e);
-                    this.Close();
+                    Close();
                 }
             }
 
@@ -154,7 +154,7 @@ namespace Shadowsocks.Controller
 
                     if (bytesRead > 0)
                     {
-                        _remote.BeginSend(connetionRecvBuffer, 0, bytesRead, 0, new AsyncCallback(PipeRemoteSendCallback), null);
+                        _remote.BeginSend(connetionRecvBuffer, 0, bytesRead, 0, PipeRemoteSendCallback, null);
                     }
                     else
                     {
@@ -166,7 +166,7 @@ namespace Shadowsocks.Controller
                 catch (Exception e)
                 {
                     Logging.LogUsefulException(e);
-                    this.Close();
+                    Close();
                 }
             }
 
@@ -179,13 +179,13 @@ namespace Shadowsocks.Controller
                 try
                 {
                     _remote.EndSend(ar);
-                    _local.BeginReceive(this.connetionRecvBuffer, 0, RecvSize, 0,
-                        new AsyncCallback(PipeConnectionReceiveCallback), null);
+                    _local.BeginReceive(connetionRecvBuffer, 0, RecvSize, 0,
+                        PipeConnectionReceiveCallback, null);
                 }
                 catch (Exception e)
                 {
                     Logging.LogUsefulException(e);
-                    this.Close();
+                    Close();
                 }
             }
 
@@ -198,13 +198,13 @@ namespace Shadowsocks.Controller
                 try
                 {
                     _local.EndSend(ar);
-                    _remote.BeginReceive(this.remoteRecvBuffer, 0, RecvSize, 0,
-                        new AsyncCallback(PipeRemoteReceiveCallback), null);
+                    _remote.BeginReceive(remoteRecvBuffer, 0, RecvSize, 0,
+                        PipeRemoteReceiveCallback, null);
                 }
                 catch (Exception e)
                 {
                     Logging.LogUsefulException(e);
-                    this.Close();
+                    Close();
                 }
             }
 
@@ -212,7 +212,7 @@ namespace Shadowsocks.Controller
             {
                 if (_localShutdown && _remoteShutdown)
                 {
-                    this.Close();
+                    Close();
                 }
             }
 
@@ -238,18 +238,19 @@ namespace Shadowsocks.Controller
                         Logging.LogUsefulException(e);
                     }
                 }
-                if (_remote != null)
+                if (_remote == null)
+                    return;
+                
+                try
                 {
-                    try
-                    {
-                        _remote.Shutdown(SocketShutdown.Both);
-                        _remote.Close();
-                    }
-                    catch (SocketException e)
-                    {
-                        Logging.LogUsefulException(e);
-                    }
+                    _remote.Shutdown(SocketShutdown.Both);
+                    _remote.Close();
                 }
+                catch (SocketException e)
+                {
+                    Logging.LogUsefulException(e);
+                }
+                
             }
         }
     }

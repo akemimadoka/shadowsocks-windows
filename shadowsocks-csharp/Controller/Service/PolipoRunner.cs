@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -22,7 +23,6 @@ namespace Shadowsocks.Controller
         private static string UniqueConfigFile;
         private static Job PolipoJob;
         private Process _process;
-        private int _runningPort;
 
         static PolipoRunner()
         {
@@ -41,17 +41,11 @@ namespace Shadowsocks.Controller
             }
         }
 
-        public int RunningPort
-        {
-            get
-            {
-                return _runningPort;
-            }
-        }
+        public int RunningPort { get; private set; }
 
         public void Start(Configuration configuration)
         {
-            Server server = configuration.GetCurrentServer();
+            //Server server = configuration.GetCurrentServer();
             if (_process == null)
             {
                 Process[] existingPolipo = Process.GetProcessesByName("ss_privoxy");
@@ -60,20 +54,25 @@ namespace Shadowsocks.Controller
                     KillProcess(p);
                 }
                 string polipoConfig = Resources.privoxy_conf;
-                _runningPort = this.GetFreePort();
+                RunningPort = GetFreePort();
                 polipoConfig = polipoConfig.Replace("__SOCKS_PORT__", configuration.localPort.ToString());
-                polipoConfig = polipoConfig.Replace("__POLIPO_BIND_PORT__", _runningPort.ToString());
+                polipoConfig = polipoConfig.Replace("__POLIPO_BIND_PORT__", RunningPort.ToString());
                 polipoConfig = polipoConfig.Replace("__POLIPO_BIND_IP__", configuration.shareOverLan ? "0.0.0.0" : "127.0.0.1");
                 FileManager.ByteArrayToFile(Utils.GetTempPath(UniqueConfigFile), Encoding.UTF8.GetBytes(polipoConfig));
 
-                _process = new Process();
+                _process = new Process
+                {
+                    StartInfo =
+                    {
+                        FileName = "ss_privoxy.exe",
+                        Arguments = UniqueConfigFile,
+                        WorkingDirectory = Utils.GetTempPath(),
+                        WindowStyle = ProcessWindowStyle.Hidden,
+                        UseShellExecute = true,
+                        CreateNoWindow = true
+                    }
+                };
                 // Configure the process using the StartInfo properties.
-                _process.StartInfo.FileName = "ss_privoxy.exe";
-                _process.StartInfo.Arguments = UniqueConfigFile;
-                _process.StartInfo.WorkingDirectory = Utils.GetTempPath();
-                _process.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
-                _process.StartInfo.UseShellExecute = true;
-                _process.StartInfo.CreateNoWindow = true;
                 _process.Start();
 
                 /*
@@ -101,11 +100,10 @@ namespace Shadowsocks.Controller
             {
                 p.CloseMainWindow();
                 p.WaitForExit(100);
-                if (!p.HasExited)
-                {
-                    p.Kill();
-                    p.WaitForExit();
-                }
+                if (p.HasExited)
+                    return;
+                p.Kill();
+                p.WaitForExit();
             }
             catch (Exception e)
             {
@@ -146,46 +144,39 @@ namespace Shadowsocks.Controller
                     return false;
                 }
             }
-            else
+
+            try
             {
-                try
-                {
-                    var cmd = process.GetCommandLine();
+                var cmd = process.GetCommandLine();
 
-                    return cmd.Contains(UniqueConfigFile);
-                }
-                catch (Win32Exception ex)
-                {
-                    if ((uint) ex.ErrorCode != 0x80004005)
-                    {
-                        throw;
-                    }
-                }
-
-                return false;
+                return cmd.Contains(UniqueConfigFile);
             }
+            catch (Win32Exception ex)
+            {
+                if ((uint) ex.ErrorCode != 0x80004005)
+                {
+                    throw;
+                }
+            }
+
+            return false;
         }
 
-        private int GetFreePort()
+        private static int GetFreePort()
         {
             int defaultPort = 8123;
             try
             {
-                IPGlobalProperties properties = IPGlobalProperties.GetIPGlobalProperties();
-                IPEndPoint[] tcpEndPoints = properties.GetActiveTcpListeners();
-
-                List<int> usedPorts = new List<int>();
-                foreach (IPEndPoint endPoint in IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners())
-                {
-                    usedPorts.Add(endPoint.Port);
-                }
-                for (int port = defaultPort; port <= 65535; port++)
-                {
-                    if (!usedPorts.Contains(port))
-                    {
-                        return port;
-                    }
-                }
+                var collection = (ICollection<int>)IPGlobalProperties.GetIPGlobalProperties()
+                    .GetActiveTcpListeners()
+                    .Select(endPoint => endPoint.Port);
+                return (from port in Enumerable.Range(defaultPort, 65535 - defaultPort)
+                    where !collection.Contains(port)
+                    select port).First();
+            }
+            catch (InvalidOperationException)
+            {
+                throw new Exception("No free port found.");
             }
             catch (Exception e)
             {
@@ -193,7 +184,6 @@ namespace Shadowsocks.Controller
                 Logging.LogUsefulException(e);
                 return defaultPort;
             }
-            throw new Exception("No free port found.");
         }
 
         [StructLayout(LayoutKind.Sequential)]
