@@ -49,11 +49,17 @@ namespace Shadowsocks.View
         private MenuItem editOnlinePACItem;
         private MenuItem autoCheckUpdatesToggleItem;
         private MenuItem proxyItem;
+        private MenuItem hotKeyItem;
         private MenuItem VerboseLoggingToggleItem;
         private ConfigForm configForm;
         private ProxyForm proxyForm;
+<<<<<<< HEAD
         private List<LogForm> logForms = new List<LogForm>();
         private bool logFormsVisible;
+=======
+        private LogForm logForm;
+        private HotkeySettingsForm hotkeySettingsForm;
+>>>>>>> c8d070fb094df35f1beca065dfbaa74913a04297
         private string _urlToOpen;
 
         public MenuViewController(ShadowsocksController controller)
@@ -133,6 +139,8 @@ namespace Shadowsocks.View
             MessageBox.Show(e.GetException().ToString(), string.Format(I18N.GetString("Shadowsocks Error: {0}"), e.GetException().Message));
         }
 
+        #region Tray Icon
+
         private void UpdateTrayIcon()
         {
             int dpi;
@@ -177,10 +185,17 @@ namespace Shadowsocks.View
             }
             // we want to show more details but notify icon title is limited to 63 characters
             string text = I18N.GetString("Shadowsocks") + " " + UpdateChecker.Version + "\n" +
+<<<<<<< HEAD
                 (enabled ?
                     I18N.GetString("System Proxy On: ") + (global ? I18N.GetString("Global") : I18N.GetString("PAC")) :
                     string.Format(I18N.GetString("Running: Port {0}"), config.localPort))  // this feedback is very important because they need to know Shadowsocks is running
                 + "\n" + serverInfo;
+=======
+                          (enabled ?
+                              I18N.GetString("System Proxy On: ") + (global ? I18N.GetString("Global") : I18N.GetString("PAC")) :
+                              String.Format(I18N.GetString("Running: Port {0}"), config.localPort))  // this feedback is very important because they need to know Shadowsocks is running
+                          + "\n" + serverInfo;
+>>>>>>> c8d070fb094df35f1beca065dfbaa74913a04297
             _notifyIcon.Text = text.Substring(0, Math.Min(63, text.Length));
         }
 
@@ -201,7 +216,7 @@ namespace Shadowsocks.View
                         else if (global)
                         {
                             Color flyBlue = Color.FromArgb(25, 125, 191);
-                            // Muliply with flyBlue
+                            // Multiply with flyBlue
                             int red   = color.R * flyBlue.R / 255;
                             int green = color.G * flyBlue.G / 255; 
                             int blue  = color.B * flyBlue.B / 255;
@@ -229,6 +244,10 @@ namespace Shadowsocks.View
             canvas.Save();
             return bitmap;
         }
+
+        #endregion
+
+        #region MenuItems and MenuGroups
 
         private MenuItem CreateMenuItem(string text, EventHandler click)
         {
@@ -269,10 +288,18 @@ namespace Shadowsocks.View
                 AutoStartupItem = CreateMenuItem("Start on Boot", AutoStartupItem_Click),
                 ShareOverLANItem = CreateMenuItem("Allow Clients from LAN", ShareOverLANItem_Click),
                 new MenuItem("-"),
+<<<<<<< HEAD
                 CreateMenuItem("Show Logs...", ShowLogItem_Click),
                 VerboseLoggingToggleItem = CreateMenuItem( "Verbose Logging", VerboseLoggingToggleItem_Click ),
                 CreateMenuGroup("Updates...", new[] {
                     CreateMenuItem("Check for Updates...", checkUpdatesItem_Click),
+=======
+                CreateMenuItem("Show Logs...", new EventHandler(this.ShowLogItem_Click)),
+                this.VerboseLoggingToggleItem = CreateMenuItem( "Verbose Logging", new EventHandler(this.VerboseLoggingToggleItem_Click) ),
+                this.hotKeyItem = CreateMenuItem("Edit Hotkeys...", new EventHandler(this.hotKeyItem_Click)),
+                CreateMenuGroup("Updates...", new MenuItem[] {
+                    CreateMenuItem("Check for Updates...", new EventHandler(this.checkUpdatesItem_Click)),
+>>>>>>> c8d070fb094df35f1beca065dfbaa74913a04297
                     new MenuItem("-"),
                     autoCheckUpdatesToggleItem = CreateMenuItem("Check for Updates at Startup", autoCheckUpdatesToggleItem_Click)
                 }),
@@ -281,6 +308,8 @@ namespace Shadowsocks.View
                 CreateMenuItem("Quit", Quit_Click)
             });
         }
+
+        #endregion
 
         private void controller_ConfigChanged(object sender, EventArgs e)
         {
@@ -406,7 +435,7 @@ namespace Shadowsocks.View
                 i++;
             }
 
-            // user want a seperator item between strategy and servers menugroup
+            // user wants a seperator item between strategy and servers menugroup
             items.Add( i++, new MenuItem("-") );
 
             int strategyCount = i;
@@ -459,31 +488,40 @@ namespace Shadowsocks.View
             }
         }
 
-        private void ShowLogForms()
+        private void ShowHotKeySettingsForm()
         {
-            if (logForms.Count == 0)
+            if (hotkeySettingsForm != null)
             {
-                LogForm f = new LogForm(controller, Logging.LogFilePath);
-                f.Show();
-                f.Activate();
-                f.FormClosed += logForm_FormClosed;
-
-                logForms.Add(f);
-                logFormsVisible = true;
+                hotkeySettingsForm.Activate();
             }
             else
             {
-                logFormsVisible = !logFormsVisible;
-                foreach (LogForm f in logForms)
-                {
-                    f.Visible = logFormsVisible;
-                }
+                hotkeySettingsForm = new HotkeySettingsForm(controller);
+                hotkeySettingsForm.Show();
+                hotkeySettingsForm.Activate();
+                hotkeySettingsForm.FormClosed += hotkeySettingsForm_FormClosed;
+            }
+        }
+
+        private void ShowLogForm()
+        {
+            if (logForm != null)
+            {
+                logForm.Activate();
+            }
+            else
+            {
+                logForm = new LogForm(controller, Logging.LogFilePath);
+                logForm.Show();
+                logForm.Activate();
+                logForm.FormClosed += logForm_FormClosed;
             }
         }
 
         void logForm_FormClosed(object sender, FormClosedEventArgs e)
         {
-            logForms.Remove((LogForm)sender);
+            logForm = null;
+            Utils.ReleaseMemory(true);
         }
 
         void configForm_FormClosed(object sender, FormClosedEventArgs e)
@@ -504,6 +542,12 @@ namespace Shadowsocks.View
             Utils.ReleaseMemory(true);
         }
 
+        void hotkeySettingsForm_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            hotkeySettingsForm = null;
+            Utils.ReleaseMemory(true);
+        }
+
         private void Config_Click(object sender, EventArgs e)
         {
             ShowConfigForm();
@@ -519,11 +563,9 @@ namespace Shadowsocks.View
         private void CheckUpdateForFirstRun()
         {
             Configuration config = controller.GetConfigurationCopy();
-            if (!config.isDefault)
-            {
-                _isStartupChecking = true;
-                updateChecker.CheckUpdate(config, 3000);
-            }
+            if (config.isDefault) return;
+            _isStartupChecking = true;
+            updateChecker.CheckUpdate(config, 3000);
         }
 
         private void ShowFirstTimeBalloon()
@@ -543,12 +585,24 @@ namespace Shadowsocks.View
         {
             switch (e.Button)
             {
+<<<<<<< HEAD
                 case MouseButtons.Left:
                     // TODO: show something interesting
                     break;
                 case MouseButtons.Middle:
                     ShowLogForms();
                     break;
+=======
+                // Easter egg
+                _notifyIcon.BalloonTipTitle = "Keep a low profile";
+                _notifyIcon.BalloonTipText = "If you want to keep a secret, you must also hide it from yourself.";
+                _notifyIcon.BalloonTipIcon = ToolTipIcon.Warning;
+                _notifyIcon.ShowBalloonTip(5 * 1000);
+            }
+            else if (e.Button == MouseButtons.Middle)
+            {
+                ShowLogForm();
+>>>>>>> c8d070fb094df35f1beca065dfbaa74913a04297
             }
         }
 
@@ -606,15 +660,6 @@ namespace Shadowsocks.View
         {
             MenuItem item = (MenuItem)sender;
             controller.SelectStrategy((string)item.Tag);
-        }
-
-        private void ShowLogItem_Click(object sender, EventArgs e)
-        {
-            LogForm f = new LogForm(controller, Logging.LogFilePath);
-            f.Show();
-            f.FormClosed += logForm_FormClosed;
-
-            logForms.Add(f);
         }
 
         private void VerboseLoggingToggleItem_Click( object sender, EventArgs e ) {
@@ -819,6 +864,21 @@ namespace Shadowsocks.View
         private void proxyItem_Click(object sender, EventArgs e)
         {
             ShowProxyForm();
+        }
+
+        private void hotKeyItem_Click(object sender, EventArgs e)
+        {
+            ShowHotKeySettingsForm();
+        }
+
+        private void ShowLogItem_Click(object sender, EventArgs e)
+        {
+            ShowLogForm();
+        }
+
+        public void ShowLogForm_HotKey()
+        {
+            ShowLogForm();
         }
     }
 }

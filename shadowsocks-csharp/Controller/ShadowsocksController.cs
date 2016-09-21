@@ -199,15 +199,15 @@ namespace Shadowsocks.Controller
 
         public void DisableProxy()
         {
-            _config.useProxy = false;
+            _config.proxy.useProxy = false;
             SaveConfig(_config);
         }
 
         public void EnableProxy(string proxy, int port)
         {
-            _config.useProxy = true;
-            _config.proxyServer = proxy;
-            _config.proxyPort = port;
+            _config.proxy.useProxy = true;
+            _config.proxy.proxyServer = proxy;
+            _config.proxy.proxyPort = port;
             SaveConfig(_config);
         }
 
@@ -307,12 +307,40 @@ namespace Shadowsocks.Controller
         {
             _config.autoCheckUpdate = enabled;
             Configuration.Save(_config);
+            if (ConfigChanged != null)
+            {
+                ConfigChanged(this, new EventArgs());
+            }
         }
 
         public void SaveLogViewerConfig(LogViewerConfig newConfig)
         {
             _config.logViewer = newConfig;
             Configuration.Save(_config);
+            if (ConfigChanged != null)
+            {
+                ConfigChanged(this, new EventArgs());
+            }
+        }
+
+        public void SaveProxyConfig(ProxyConfig newConfig)
+        {
+            _config.proxy = newConfig;
+            Configuration.Save(_config);
+            if (ConfigChanged != null)
+            {
+                ConfigChanged(this, new EventArgs());
+            }
+        }
+
+        public void SaveHotkeyConfig(HotkeyConfig newConfig)
+        {
+            _config.hotkey = newConfig;
+            SaveConfig(_config);
+            if (ConfigChanged != null)
+            {
+                ConfigChanged(this, new EventArgs());
+            }
         }
 
         public void UpdateLatency(Server server, TimeSpan latency)
@@ -490,6 +518,8 @@ namespace Shadowsocks.Controller
             File.WriteAllText(PACServer.PAC_FILE, abpContent, Encoding.UTF8);
         }
 
+        #region Memory Management
+
         private void StartReleasingMemory()
         {
             _ramThread = new Thread(ReleaseMemory) {IsBackground = true};
@@ -504,6 +534,10 @@ namespace Shadowsocks.Controller
                 Thread.Sleep(30 * 1000);
             }
         }
+
+        #endregion
+
+        #region Traffic Statistics
 
         private void StartTrafficStatistics(int queueMaxSize)
         {
@@ -537,6 +571,8 @@ namespace Shadowsocks.Controller
                 Thread.Sleep(1000);
             }
         }
+
+        #endregion
 
     }
 }
