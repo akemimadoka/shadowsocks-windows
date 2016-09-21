@@ -29,8 +29,7 @@ namespace Shadowsocks.Controller
             private byte[] _firstPacket;
             private int _firstPacketLength;
             private Socket _local;
-<<<<<<< HEAD
-            private Socket _remote;
+            private WrappedSocket _remote;
             private bool _closed;
             private bool _localShutdown;
             private bool _remoteShutdown;
