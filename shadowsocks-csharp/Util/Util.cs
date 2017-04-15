@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Microsoft.Win32;
@@ -14,19 +12,20 @@ namespace Shadowsocks.Util
     public struct BandwidthScaleInfo
     {
         public float value;
-        public string unit_name;
+        public string unitName;
         public long unit;
 
-        public BandwidthScaleInfo(float value, string unit_name, long unit)
+        public BandwidthScaleInfo(float value, string unitName, long unit)
         {
             this.value = value;
-            this.unit_name = unit_name;
+            this.unitName = unitName;
             this.unit = unit;
         }
     }
 
-    public class Utils
+    public static class Utils
     {
+<<<<<<< HEAD
         private static bool? _portableMode;
         private static string TempPath;
 
@@ -39,10 +38,14 @@ namespace Shadowsocks.Util
 
             return _portableMode.Value;
         }
+=======
+        private static string _tempPath = null;
+>>>>>>> 60a55728088da5f22987c759065488ad42fa69ad
 
         // return path to store temporary files
         public static string GetTempPath()
         {
+<<<<<<< HEAD
             if (TempPath != null)
                 return TempPath;
             if (IsPortableMode())
@@ -63,6 +66,23 @@ namespace Shadowsocks.Util
             else
                 TempPath = Path.GetTempPath();
             return TempPath;
+=======
+            if (_tempPath == null)
+            {
+                try
+                {
+                    Directory.CreateDirectory(Path.Combine(Application.StartupPath, "ss_win_temp"));
+                    // don't use "/", it will fail when we call explorer /select xxx/ss_win_temp\xxx.log
+                    _tempPath = Path.Combine(Application.StartupPath, "ss_win_temp");
+                }
+                catch (Exception e)
+                {
+                    Logging.Error(e);
+                    throw;
+                }
+            }
+            return _tempPath;
+>>>>>>> 60a55728088da5f22987c759065488ad42fa69ad
         }
 
         // return a full path with filename combined which pointed to the temporary directory
@@ -129,7 +149,7 @@ namespace Shadowsocks.Util
         public static string FormatBandwidth(long n)
         {
             var result = GetBandwidthScale(n);
-            return $"{result.value:0.##}{result.unit_name}";
+            return $"{result.value:0.##}{result.unitName}";
         }
 
         public static string FormatBytes(long bytes)
@@ -209,17 +229,33 @@ namespace Shadowsocks.Util
             return new BandwidthScaleInfo(f, unit, scale);
         }
 
-        public static RegistryKey OpenUserRegKey( string name, bool writable ) {
+        public static RegistryKey OpenRegKey(string name, bool writable, RegistryHive hive = RegistryHive.CurrentUser)
+        {
             // we are building x86 binary for both x86 and x64, which will
             // cause problem when opening registry key
             // detect operating system instead of CPU
-            RegistryKey userKey = RegistryKey.OpenRemoteBaseKey( RegistryHive.CurrentUser, "",
-                Environment.Is64BitOperatingSystem ? RegistryView.Registry64 : RegistryView.Registry32 )
-                .OpenSubKey( name, writable );
-            return userKey;
+            if (name.IsNullOrEmpty()) throw new ArgumentException(nameof(name));
+            try
+            {
+                RegistryKey userKey = RegistryKey.OpenBaseKey(hive,
+                        Environment.Is64BitOperatingSystem ? RegistryView.Registry64 : RegistryView.Registry32)
+                    .OpenSubKey(name, writable);
+                return userKey;
+            }
+            catch (ArgumentException ae)
+            {
+                MessageBox.Show("OpenRegKey: " + ae.ToString());
+                return null;
+            }
+            catch (Exception e)
+            {
+                Logging.LogUsefulException(e);
+                return null;
+            }
         }
 
-        public static bool IsWinVistaOrHigher() {
+        public static bool IsWinVistaOrHigher()
+        {
             return Environment.OSVersion.Version.Major > 5;
         }
 
@@ -227,5 +263,35 @@ namespace Shadowsocks.Util
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool SetProcessWorkingSetSize(IntPtr process,
             UIntPtr minimumWorkingSetSize, UIntPtr maximumWorkingSetSize);
+
+
+        // See: https://msdn.microsoft.com/en-us/library/hh925568(v=vs.110).aspx
+        public static bool IsSupportedRuntimeVersion()
+        {
+            /*
+             * +-----------------------------------------------------------------+----------------------------+
+             * | Version                                                         | Value of the Release DWORD |
+             * +-----------------------------------------------------------------+----------------------------+
+             * | .NET Framework 4.6.2 installed on Windows 10 Anniversary Update | 394802                     |
+             * | .NET Framework 4.6.2 installed on all other Windows OS versions | 394806                     |
+             * +-----------------------------------------------------------------+----------------------------+
+             */
+            const int minSupportedRelease = 394802;
+
+            const string subkey = @"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full\";
+            using (var ndpKey = OpenRegKey(subkey, false, RegistryHive.LocalMachine))
+            {
+                if (ndpKey?.GetValue("Release") != null)
+                {
+                    var releaseKey = (int)ndpKey.GetValue("Release");
+
+                    if (releaseKey >= minSupportedRelease)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
     }
 }

@@ -7,11 +7,11 @@ namespace Shadowsocks.Controller
 {
     using Shadowsocks.Properties;
 
-    public class I18N
+    public static class I18N
     {
-        protected static Dictionary<string, string> Strings;
+        private static Dictionary<string, string> _strings = new Dictionary<string, string>();
 
-        static void Init(string res)
+        private static void Init(string res)
         {
             using (var sr = new StringReader(res))
             {
@@ -23,13 +23,14 @@ namespace Shadowsocks.Controller
                     var pos = line.IndexOf('=');
                     if (pos < 1)
                         continue;
-                    Strings[line.Substring(0, pos)] = line.Substring(pos + 1);
+                    _strings[line.Substring(0, pos)] = line.Substring(pos + 1);
                 }
             }
         }
 
         static I18N()
         {
+<<<<<<< HEAD
             Strings = new Dictionary<string, string>();
             string name = CultureInfo.CurrentCulture.Name;
             if (!name.StartsWith("zh"))
@@ -41,12 +42,31 @@ namespace Shadowsocks.Controller
             else
             {
                 Init(Resources.zh_tw);
+=======
+            string name = CultureInfo.CurrentCulture.EnglishName;
+            if (name.StartsWith("Chinese", StringComparison.OrdinalIgnoreCase))
+            {
+                // choose Traditional Chinese only if we get explicit indication
+                Init(name.Contains("Traditional")
+                    ? Resources.zh_TW
+                    : Resources.zh_CN);
+            }
+            else if (name.StartsWith("Japan", StringComparison.OrdinalIgnoreCase))
+            {
+                Init(Resources.ja);
+>>>>>>> 60a55728088da5f22987c759065488ad42fa69ad
             }
         }
 
         public static string GetString(string key)
         {
+<<<<<<< HEAD
             return Strings.ContainsKey(key) ? Strings[key] : key;
+=======
+            return _strings.ContainsKey(key)
+                ? _strings[key]
+                : key;
+>>>>>>> 60a55728088da5f22987c759065488ad42fa69ad
         }
     }
 }

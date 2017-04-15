@@ -39,7 +39,7 @@ namespace Shadowsocks.Proxy
             public Exception ex { get; set; }
         }
 
-        private WrappedSocket _remote = new WrappedSocket();
+        private readonly WrappedSocket _remote = new WrappedSocket();
 
         private const int Socks5PktMaxSize = 4 + 16 + 2;
         private readonly byte[] _receiveBuffer = new byte[Socks5PktMaxSize];
@@ -128,7 +128,7 @@ namespace Shadowsocks.Proxy
                 AsyncState = state
             };
 
-            _remote?.BeginSend(request, 0, request.Length, 0, Socks5RequestSendCallback, st);
+            _remote.BeginSend(request, 0, request.Length, 0, Socks5RequestSendCallback, st);
         }
 
         public void EndConnectDest(IAsyncResult asyncResult)
@@ -144,7 +144,7 @@ namespace Shadowsocks.Proxy
         public void BeginSend(byte[] buffer, int offset, int size, SocketFlags socketFlags, AsyncCallback callback,
             object state)
         {
-            _remote?.BeginSend(buffer, offset, size, socketFlags, callback, state);
+            _remote.BeginSend(buffer, offset, size, socketFlags, callback, state);
         }
 
         public int EndSend(IAsyncResult asyncResult)
@@ -155,7 +155,7 @@ namespace Shadowsocks.Proxy
         public void BeginReceive(byte[] buffer, int offset, int size, SocketFlags socketFlags, AsyncCallback callback,
             object state)
         {
-            _remote?.BeginReceive(buffer, offset, size, socketFlags, callback, state);
+            _remote.BeginReceive(buffer, offset, size, socketFlags, callback, state);
         }
 
         public int EndReceive(IAsyncResult asyncResult)
@@ -165,12 +165,12 @@ namespace Shadowsocks.Proxy
 
         public void Shutdown(SocketShutdown how)
         {
-            _remote?.Shutdown(how);
+            _remote.Shutdown(how);
         }
 
         public void Close()
         {
-            _remote?.Dispose();
+            _remote.Dispose();
         }
         
 

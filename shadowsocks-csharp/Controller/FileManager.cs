@@ -1,10 +1,11 @@
 ﻿using System;
 using System.IO;
 using System.IO.Compression;
+using System.Text;
 
 namespace Shadowsocks.Controller
 {
-    public class FileManager
+    public static class FileManager
     {
         public static bool ByteArrayToFile(string fileName, byte[] content)
         {
@@ -16,7 +17,11 @@ namespace Shadowsocks.Controller
             }
             catch (Exception ex)
             {
+<<<<<<< HEAD
                 Console.WriteLine($"Exception caught in process: {ex}");
+=======
+                Logging.Error(ex);
+>>>>>>> 60a55728088da5f22987c759065488ad42fa69ad
             }
             return false;
         }
@@ -36,6 +41,28 @@ namespace Shadowsocks.Controller
                 {
                     fs.Write(buffer, 0, n);
                 }
+            }
+        }
+
+        public static string NonExclusiveReadAllText(string path)
+        {
+            return NonExclusiveReadAllText(path, Encoding.Default);
+        }
+
+        public static string NonExclusiveReadAllText(string path, Encoding encoding)
+        {
+            try
+            {
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var sr = new StreamReader(fs, encoding))
+                {
+                    return sr.ReadToEnd();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.Error(ex);
+                throw ex;
             }
         }
     }

@@ -27,7 +27,7 @@ namespace Shadowsocks.Controller.Strategy
             // do nothing
         }
 
-        public Server GetAServer(IStrategyCallerType type, IPEndPoint localIPEndPoint)
+        public Server GetAServer(IStrategyCallerType type, IPEndPoint localIPEndPoint, EndPoint destEndPoint)
         {
             var configs = _controller.GetCurrentConfiguration().configs;
             return configs[type == IStrategyCallerType.TCP ? _random.Next() : localIPEndPoint.GetHashCode() % configs.Count];

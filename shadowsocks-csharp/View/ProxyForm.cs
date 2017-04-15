@@ -32,8 +32,10 @@ namespace Shadowsocks.View
         private void UpdateTexts()
         {
             UseProxyCheckBox.Text = I18N.GetString("Use Proxy");
+            ProxyTypeLabel.Text = I18N.GetString("Proxy Type");
             ProxyAddrLabel.Text = I18N.GetString("Proxy Addr");
-            ProxyPortLable.Text = I18N.GetString("Proxy Port");
+            ProxyPortLabel.Text = I18N.GetString("Proxy Port");
+            ProxyTimeoutLabel.Text = I18N.GetString("Timeout(Sec)");
             OKButton.Text = I18N.GetString("OK");
             MyCancelButton.Text = I18N.GetString("Cancel");
             this.Text = I18N.GetString("Edit Proxy");
@@ -50,43 +52,49 @@ namespace Shadowsocks.View
             UseProxyCheckBox.Checked = _modifiedConfiguration.useProxy;
             ProxyServerTextBox.Text = _modifiedConfiguration.proxyServer;
             ProxyPortTextBox.Text = _modifiedConfiguration.proxyPort.ToString();
+            ProxyTimeoutTextBox.Text = _modifiedConfiguration.proxyTimeout.ToString();
+            ProxyTypeComboBox.SelectedIndex = _modifiedConfiguration.proxyType;
         }
 
         private void OKButton_Click(object sender, EventArgs e)
         {
+
             if (UseProxyCheckBox.Checked)
             {
-                try
-                {
-                    var proxy = ProxyServerTextBox.Text;
-                    var port = int.Parse(ProxyPortTextBox.Text);
-                    Configuration.CheckServer(proxy);
-                    Configuration.CheckPort(port);
-
-                    controller.EnableProxy(proxy, port);
-                }
-                catch (FormatException)
+                int port;
+                int timeout;
+                if (!int.TryParse(ProxyPortTextBox.Text, out port))
                 {
                     MessageBox.Show(I18N.GetString("Illegal port number format"));
                     return;
+                }
+
+                if (!int.TryParse(ProxyTimeoutTextBox.Text, out timeout))
+                {
+                    MessageBox.Show(I18N.GetString("Illegal timeout format"));
+                    return;
+                }
+
+                var type = ProxyTypeComboBox.SelectedIndex;
+                var proxy = ProxyServerTextBox.Text;
+                try
+                {
+                    Configuration.CheckServer(proxy);
+                    Configuration.CheckPort(port);
+                    Configuration.CheckTimeout(timeout, ProxyConfig.MaxProxyTimeoutSec);
                 }
                 catch (Exception ex)
                 {
                     MessageBox.Show(ex.Message);
                     return;
                 }
+
+                controller.EnableProxy(type, proxy, port, timeout);
             }
             else
             {
                 controller.DisableProxy();
             }
-
-            _modifiedConfiguration.useProxy = UseProxyCheckBox.Checked;
-            _modifiedConfiguration.proxyServer = ProxyServerTextBox.Text;
-            var tmpProxyPort = 0;
-            int.TryParse(ProxyPortTextBox.Text, out tmpProxyPort);
-            _modifiedConfiguration.proxyPort = tmpProxyPort;
-            controller.SaveProxyConfig(_modifiedConfiguration);
 
             this.Close();
         }
@@ -112,13 +120,15 @@ namespace Shadowsocks.View
             {
                 ProxyServerTextBox.Enabled = true;
                 ProxyPortTextBox.Enabled = true;
+                ProxyTimeoutTextBox.Enabled = true;
+                ProxyTypeComboBox.Enabled = true;
             }
             else
             {
-                ProxyServerTextBox.Clear();
-                ProxyPortTextBox.Clear();
                 ProxyServerTextBox.Enabled = false;
                 ProxyPortTextBox.Enabled = false;
+                ProxyTimeoutTextBox.Enabled = false;
+                ProxyTypeComboBox.Enabled = false;
             }
         }
     }

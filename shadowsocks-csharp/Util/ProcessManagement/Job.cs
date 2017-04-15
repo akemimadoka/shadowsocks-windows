@@ -12,21 +12,7 @@ namespace Shadowsocks.Util.ProcessManagement
      */
     public class Job : IDisposable
     {
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
-        private static extern IntPtr CreateJobObject(IntPtr a, string lpName);
-
-        [DllImport("kernel32.dll")]
-        private static extern bool SetInformationJobObject(IntPtr hJob, JobObjectInfoType infoType, IntPtr lpJobObjectInfo, UInt32 cbJobObjectInfoLength);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool CloseHandle(IntPtr hObject);
-
-        private IntPtr handle;
-        private bool disposed;
+        private IntPtr handle = IntPtr.Zero;
 
         public Job()
         {
@@ -72,46 +58,16 @@ namespace Shadowsocks.Util.ProcessManagement
 >>>>>>> c8d070fb094df35f1beca065dfbaa74913a04297
         }
 
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        private void Dispose(bool disposing)
-        {
-            if (disposed)
-                return;
-
-            if (disposing) { }
-
-            Close();
-            disposed = true;
-        }
-
-        public void Close()
-        {
-            CloseHandle(handle);
-            handle = IntPtr.Zero;
-        }
-
         public bool AddProcess(IntPtr processHandle)
         {
             var succ = AssignProcessToJobObject(handle, processHandle);
 
-<<<<<<< HEAD
-            if (succ)
-                return true;
-            var err = Marshal.GetLastWin32Error();
-            Logging.Error("Failed to call AssignProcessToJobObject! GetLastError=" + err);
-=======
             if (!succ)
             {
                 Logging.Error("Failed to call AssignProcessToJobObject! GetLastError=" + Marshal.GetLastWin32Error());
             }
->>>>>>> c8d070fb094df35f1beca065dfbaa74913a04297
 
-            return false;
+            return succ;
         }
 
         public bool AddProcess(int processId)
@@ -119,6 +75,71 @@ namespace Shadowsocks.Util.ProcessManagement
             return AddProcess(Process.GetProcessById(processId).Handle);
         }
 
+        #region IDisposable
+
+        private bool disposed;
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposed) return;
+            disposed = true;
+
+<<<<<<< HEAD
+<<<<<<< HEAD
+            if (succ)
+                return true;
+            var err = Marshal.GetLastWin32Error();
+            Logging.Error("Failed to call AssignProcessToJobObject! GetLastError=" + err);
+=======
+            if (!succ)
+=======
+            if (disposing)
+>>>>>>> 60a55728088da5f22987c759065488ad42fa69ad
+            {
+                // no managed objects to free
+            }
+>>>>>>> c8d070fb094df35f1beca065dfbaa74913a04297
+
+<<<<<<< HEAD
+            return false;
+=======
+            if (handle != IntPtr.Zero)
+            {
+                CloseHandle(handle);
+                handle = IntPtr.Zero;
+            }
+>>>>>>> 60a55728088da5f22987c759065488ad42fa69ad
+        }
+
+        ~Job()
+        {
+            Dispose(false);
+        }
+
+        #endregion
+
+        #region Interop
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr CreateJobObject(IntPtr a, string lpName);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool SetInformationJobObject(IntPtr hJob, JobObjectInfoType infoType, IntPtr lpJobObjectInfo, UInt32 cbJobObjectInfoLength);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        #endregion
     }
 
     #region Helper classes

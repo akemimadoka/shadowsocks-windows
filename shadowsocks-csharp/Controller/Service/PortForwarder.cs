@@ -7,7 +7,7 @@ namespace Shadowsocks.Controller
 {
     class PortForwarder : Listener.Service
     {
-        int _targetPort;
+        private readonly int _targetPort;
 
         public PortForwarder(int targetPort)
         {
@@ -24,7 +24,7 @@ namespace Shadowsocks.Controller
             return true;
         }
 
-        class Handler
+        private class Handler
         {
             private byte[] _firstPacket;
             private int _firstPacketLength;
@@ -38,12 +38,19 @@ namespace Shadowsocks.Controller
             private bool _closed = false;
             private bool _localShutdown = false;
             private bool _remoteShutdown = false;
+<<<<<<< HEAD
 >>>>>>> c8d070fb094df35f1beca065dfbaa74913a04297
             public const int RecvSize = 16384;
+=======
+            private const int RecvSize = 2048;
+>>>>>>> 60a55728088da5f22987c759065488ad42fa69ad
             // remote receive buffer
             private byte[] remoteRecvBuffer = new byte[RecvSize];
             // connection receive buffer
             private byte[] connetionRecvBuffer = new byte[RecvSize];
+
+            // instance-based lock
+            private readonly object _Lock = new object();
 
             public void Start(byte[] firstPacket, int length, Socket socket, int targetPort)
             {
@@ -131,7 +138,6 @@ namespace Shadowsocks.Controller
                 try
                 {
                     int bytesRead = _remote.EndReceive(ar);
-
                     if (bytesRead > 0)
                     {
                         _local.BeginSend(remoteRecvBuffer, 0, bytesRead, 0, PipeConnectionSendCallback, null);
@@ -159,7 +165,6 @@ namespace Shadowsocks.Controller
                 try
                 {
                     int bytesRead = _local.EndReceive(ar);
-
                     if (bytesRead > 0)
                     {
                         _remote.BeginSend(connetionRecvBuffer, 0, bytesRead, 0, PipeRemoteSendCallback, null);
@@ -226,7 +231,7 @@ namespace Shadowsocks.Controller
 
             public void Close()
             {
-                lock (this)
+                lock (_Lock)
                 {
                     if (_closed)
                     {

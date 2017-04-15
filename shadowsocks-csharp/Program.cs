@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using Microsoft.Win32;
 
 using Shadowsocks.Controller;
+using Shadowsocks.Controller.Hotkeys;
 using Shadowsocks.Util;
 using Shadowsocks.View;
 
@@ -13,9 +14,8 @@ namespace Shadowsocks
 {
     static class Program
     {
-        private static ShadowsocksController _controller;
-        // XXX: Don't change this name
-        private static MenuViewController _viewController;
+        public static ShadowsocksController MainController { get; private set; }
+        public static MenuViewController MenuController { get; private set; }
 
         /// <summary>
         /// 应用程序的主入口点。
@@ -31,15 +31,29 @@ namespace Shadowsocks
                 return;
             }
 
-            Utils.ReleaseMemory(true);
-            using (Mutex mutex = new Mutex(false, "Global\\Shadowsocks_" + Application.StartupPath.GetHashCode()))
+            // Check .NET Framework version
+            if (!Utils.IsSupportedRuntimeVersion())
             {
+                MessageBox.Show(I18N.GetString("Unsupported .NET Framework, please update to 4.6.2 or later."),
+                "Shadowsocks Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                Process.Start(
+                    "http://dotnetsocial.cloudapp.net/GetDotnet?tfm=.NETFramework,Version=v4.6.2");
+                return;
+            }
+
+            Utils.ReleaseMemory(true);
+            using (Mutex mutex = new Mutex(false, $"Global\\Shadowsocks_{Application.StartupPath.GetHashCode()}"))
+            {
+                Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+                // handle UI exceptions
+                Application.ThreadException += Application_ThreadException;
+                // handle non-UI exceptions
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
                 Application.ApplicationExit += Application_ApplicationExit;
                 SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                Application.ApplicationExit += (sender, args) => HotKeys.Destroy();
 
                 if (!mutex.WaitOne(0, false))
                 {
@@ -48,8 +62,9 @@ namespace Shadowsocks
                     {
                         Process oldProcess = oldProcesses[0];
                     }
-                    MessageBox.Show(I18N.GetString("Find Shadowsocks icon in your notify tray.") + "\n" +
-                        I18N.GetString("If you want to start multiple Shadowsocks, make a copy in another directory."),
+                    MessageBox.Show(I18N.GetString("Find Shadowsocks icon in your notify tray.")
+                        + Environment.NewLine
+                        + I18N.GetString("If you want to start multiple Shadowsocks, make a copy in another directory."),
                         I18N.GetString("Shadowsocks is already running."));
                     return;
                 }
@@ -64,10 +79,10 @@ namespace Shadowsocks
 #else
                 Logging.OpenLogFile();
 #endif
-                _controller = new ShadowsocksController();
-                _viewController = new MenuViewController(_controller);
-                HotKeys.Init();
-                _controller.Start();
+                MainController = new ShadowsocksController();
+                MenuController = new MenuViewController(MainController);
+                HotKeys.Init(MainController);
+                MainController.Start();
                 Application.Run();
             }
         }
@@ -77,11 +92,24 @@ namespace Shadowsocks
         {
             if (Interlocked.Increment(ref exited) == 1)
             {
-                Logging.Error(e.ExceptionObject?.ToString());
-                MessageBox.Show(I18N.GetString("Unexpected error, shadowsocks will exit. Please report to") +
-                    " https://github.com/shadowsocks/shadowsocks-windows/issues " +
-                    Environment.NewLine + (e.ExceptionObject?.ToString()),
-                    "Shadowsocks Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                string errMsg = e.ExceptionObject.ToString();
+                Logging.Error(errMsg);
+                MessageBox.Show(
+                    $"{I18N.GetString("Unexpected error, shadowsocks will exit. Please report to")} https://github.com/shadowsocks/shadowsocks-windows/issues {Environment.NewLine}{errMsg}",
+                    "Shadowsocks non-UI Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Application.Exit();
+            }
+        }
+
+        private static void Application_ThreadException(object sender, ThreadExceptionEventArgs e)
+        {
+            if (Interlocked.Increment(ref exited) == 1)
+            {
+                string errorMsg = $"Exception Detail: {Environment.NewLine}{e.Exception}";
+                Logging.Error(errorMsg);
+                MessageBox.Show(
+                    $"{I18N.GetString("Unexpected error, shadowsocks will exit. Please report to")} https://github.com/shadowsocks/shadowsocks-windows/issues {Environment.NewLine}{errorMsg}",
+                    "Shadowsocks UI Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Application.Exit();
             }
         }
@@ -92,9 +120,9 @@ namespace Shadowsocks
             {
                 case PowerModes.Resume:
                     Logging.Info("os wake up");
-                    if (_controller != null)
+                    if (MainController != null)
                     {
-                        System.Timers.Timer timer = new System.Timers.Timer(5 * 1000);
+                        System.Timers.Timer timer = new System.Timers.Timer(10 * 1000);
                         timer.Elapsed += Timer_Elapsed;
                         timer.AutoReset = false;
                         timer.Enabled = true;
@@ -102,7 +130,11 @@ namespace Shadowsocks
                     }
                     break;
                 case PowerModes.Suspend:
-                    _controller?.Stop();
+                    if (MainController != null)
+                    {
+                        MainController.Stop();
+                        Logging.Info("controller stopped");
+                    }
                     Logging.Info("os suspend");
                     break;
             }
@@ -112,7 +144,11 @@ namespace Shadowsocks
         {
             try
             {
-                _controller?.Start();
+                if (MainController != null)
+                {
+                    MainController.Start();
+                    Logging.Info("controller started");
+                }
             }
             catch (Exception ex)
             {
@@ -136,10 +172,15 @@ namespace Shadowsocks
 
         private static void Application_ApplicationExit(object sender, EventArgs e)
         {
-            if (_controller != null)
+            // detach static event handlers
+            Application.ApplicationExit -= Application_ApplicationExit;
+            SystemEvents.PowerModeChanged -= SystemEvents_PowerModeChanged;
+            Application.ThreadException -= Application_ThreadException;
+            HotKeys.Destroy();
+            if (MainController != null)
             {
-                _controller.Stop();
-                _controller = null;
+                MainController.Stop();
+                MainController = null;
             }
         }
     }
